@@ -82,6 +82,16 @@ jobs:
           ref: ${{ env.HL2SDK_MANIFESTS_REF }}
           path: dependencies/hl2sdk-manifests
 
+      # AMBuild 2.0's compiler detection needs the Visual Studio developer environment; newer APIs find MSVC themselves.
+      - name: Load the Visual Studio developer environment
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $vsRoot = & vswhere -latest -property installationPath
+          cmd /c "`"$vsRoot\VC\Auxiliary\Build\vcvars32.bat`" && set" | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') { "$($Matches[1])=$($Matches[2])" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append }
+          }
+
       - name: Install AMBuild
         if: matrix.platform == 'windows'
         run: python -m pip install git+https://github.com/alliedmodders/ambuild@${{ env.AMBUILD_REF }}
