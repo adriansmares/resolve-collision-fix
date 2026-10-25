@@ -10,19 +10,27 @@ sourceFiles = [
   'source/resolve_collision_tools.cpp',
   'source/util_shared.cpp',
   'source/takedamageinfohack.cpp',
-  os.path.join(Extension.sm_root, 'public', 'asm', 'asm.c'),
   os.path.join(Extension.sm_root, 'public', 'CDetour', 'detours.cpp'),
-  os.path.join(Extension.sm_root, 'public', 'libudis86', 'decode.c'),
-  os.path.join(Extension.sm_root, 'public', 'libudis86', 'itab.c'),
-  os.path.join(Extension.sm_root, 'public', 'libudis86', 'syn-att.c'),
-  os.path.join(Extension.sm_root, 'public', 'libudis86', 'syn-intel.c'),
-  os.path.join(Extension.sm_root, 'public', 'libudis86', 'syn.c'),
-  os.path.join(Extension.sm_root, 'public', 'libudis86', 'udis86.c'),
+  # SourceMod's CDetour is built on safetyhook, pinned to the same commit as SourceMod's public/safetyhook.
+  'safetyhook/zydis/Zydis.c',
+  'safetyhook/src/allocator.cpp',
+  'safetyhook/src/easy.cpp',
+  'safetyhook/src/inline_hook.cpp',
+  'safetyhook/src/mid_hook.cpp',
+  'safetyhook/src/os.windows.cpp' if builder.target_platform == 'windows' else 'safetyhook/src/os.linux.cpp',
+  'safetyhook/src/utility.cpp',
+  'safetyhook/src/vmt_hook.cpp',
 ]
 
 includeFiles = [
   os.path.join(builder.sourcePath, 'source', 'sdk'),
   os.path.join(builder.sourcePath, 'source'),
+]
+
+# Zydis.c is C, so safetyhook's include paths are needed for C and C++ alike.
+safetyhookIncludes = [
+  os.path.join(builder.sourcePath, 'safetyhook', 'include'),
+  os.path.join(builder.sourcePath, 'safetyhook', 'zydis'),
 ]
 
 ###############
@@ -46,6 +54,7 @@ for sdk_name in Extension.sdks:
   binary = Extension.HL2Config(project, projectName + '.ext.' + sdk.ext, sdk)
   compiler = binary.compiler
   compiler.cxxincludes += includeFiles
+  compiler.includes += safetyhookIncludes
   
   if compiler.vendor == 'msvc':
     compiler.defines += [ '_CRT_NO_VA_START_VALIDATION' ]
@@ -56,6 +65,9 @@ for sdk_name in Extension.sdks:
     compiler.linkflags.append('Ws2_32.lib')
   elif compiler.vendor == 'clang':
     compiler.cxxflags += [ '-Wno-reinterpret-base-class', '-Wno-infinite-recursion', '-Wno-implicit-const-int-float-conversion', '-std=c++17', '-Wno-register', '-Wno-varargs' ]
+    if compiler.version >= 'clang-20':
+      # hl2sdk's vphysics_interface.h memsets non-trivial types; clang 20 started warning about it.
+      compiler.cxxflags += [ '-Wno-nontrivial-memcall' ]
     compiler.defines += [ 'HAVE_STRING_H', '_GLIBCXX_USE_CXX11_ABI=0' ]
     compiler.linkflags += [ '-static-libstdc++' ]
 	
